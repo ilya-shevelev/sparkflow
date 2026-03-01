@@ -1,0 +1,86 @@
+version: 2
+
+project_name: sparkflow
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: sparkflow-server
+    main: ./cmd/sparkflow-server
+    binary: sparkflow-server
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+
+  - id: sparkflow-worker
+    main: ./cmd/sparkflow-worker
+    binary: sparkflow-worker
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+
+  - id: sparkflowctl
+    main: ./cmd/sparkflowctl
+    binary: sparkflowctl
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+
+archives:
+  - id: default
+    format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "Merge pull request"
+
+dockers:
+  - image_templates:
+      - "ghcr.io/ilya-shevelev/sparkflow:{{ .Version }}"
+      - "ghcr.io/ilya-shevelev/sparkflow:latest"
+    dockerfile: deploy/docker/Dockerfile
+    build_flag_templates:
+      - "--build-arg=VERSION={{.Version}}"
+      - "--build-arg=COMMIT={{.Commit}}"
