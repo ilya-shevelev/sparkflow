@@ -1,0 +1,167 @@
+syntax = "proto3";
+
+package sparkflow.api.v1;
+
+option go_package = "github.com/ilya-shevelev/sparkflow/api/proto/v1;apiv1";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+// WorkflowService manages DAG workflows.
+service WorkflowService {
+  rpc CreateDAG(CreateDAGRequest) returns (CreateDAGResponse);
+  rpc GetDAG(GetDAGRequest) returns (GetDAGResponse);
+  rpc ListDAGs(ListDAGsRequest) returns (ListDAGsResponse);
+  rpc DeleteDAG(DeleteDAGRequest) returns (DeleteDAGResponse);
+  rpc TriggerDAG(TriggerDAGRequest) returns (TriggerDAGResponse);
+  rpc GetRun(GetRunRequest) returns (GetRunResponse);
+  rpc ListRuns(ListRunsRequest) returns (ListRunsResponse);
+  rpc CancelRun(CancelRunRequest) returns (CancelRunResponse);
+}
+
+message DAG {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  repeated Task tasks = 4;
+  CronSchedule schedule = 5;
+  DAGConfig config = 6;
+  int32 version = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message Task {
+  string id = 1;
+  string name = 2;
+  string executor = 3;
+  google.protobuf.Struct config = 4;
+  RetryPolicy retry_policy = 5;
+  int64 timeout_ms = 6;
+  repeated string dependencies = 7;
+  map<string, string> labels = 8;
+  int32 priority = 9;
+}
+
+message RetryPolicy {
+  int32 max_retries = 1;
+  int64 initial_backoff_ms = 2;
+  int64 max_backoff_ms = 3;
+  double backoff_factor = 4;
+  repeated string retry_on = 5;
+}
+
+message CronSchedule {
+  string expression = 1;
+  string timezone = 2;
+  bool catchup = 3;
+}
+
+message DAGConfig {
+  int32 max_concurrency = 1;
+  int64 timeout_ms = 2;
+  RetryPolicy default_retry = 3;
+  map<string, string> params = 4;
+  repeated string tags = 5;
+  string owner = 6;
+}
+
+message DAGRun {
+  string id = 1;
+  string dag_id = 2;
+  RunStatus status = 3;
+  map<string, string> params = 4;
+  google.protobuf.Timestamp start_time = 5;
+  google.protobuf.Timestamp end_time = 6;
+  google.protobuf.Timestamp created_at = 7;
+  repeated TaskInstance task_instances = 8;
+}
+
+message TaskInstance {
+  string id = 1;
+  string run_id = 2;
+  string task_id = 3;
+  RunStatus status = 4;
+  int32 attempt = 5;
+  string worker_id = 6;
+  bytes output = 7;
+  string error = 8;
+  google.protobuf.Timestamp start_time = 9;
+  google.protobuf.Timestamp end_time = 10;
+}
+
+enum RunStatus {
+  RUN_STATUS_UNSPECIFIED = 0;
+  RUN_STATUS_PENDING = 1;
+  RUN_STATUS_QUEUED = 2;
+  RUN_STATUS_RUNNING = 3;
+  RUN_STATUS_SUCCESS = 4;
+  RUN_STATUS_FAILED = 5;
+  RUN_STATUS_CANCELLED = 6;
+}
+
+message CreateDAGRequest {
+  string yaml_content = 1;
+}
+
+message CreateDAGResponse {
+  DAG dag = 1;
+}
+
+message GetDAGRequest {
+  string dag_id = 1;
+}
+
+message GetDAGResponse {
+  DAG dag = 1;
+}
+
+message ListDAGsRequest {
+  int32 limit = 1;
+  string owner = 2;
+  repeated string tags = 3;
+}
+
+message ListDAGsResponse {
+  repeated DAG dags = 1;
+}
+
+message DeleteDAGRequest {
+  string dag_id = 1;
+}
+
+message DeleteDAGResponse {}
+
+message TriggerDAGRequest {
+  string dag_id = 1;
+  map<string, string> params = 2;
+}
+
+message TriggerDAGResponse {
+  string run_id = 1;
+}
+
+message GetRunRequest {
+  string run_id = 1;
+}
+
+message GetRunResponse {
+  DAGRun run = 1;
+}
+
+message ListRunsRequest {
+  string dag_id = 1;
+  RunStatus status = 2;
+  int32 limit = 3;
+  int32 offset = 4;
+}
+
+message ListRunsResponse {
+  repeated DAGRun runs = 1;
+}
+
+message CancelRunRequest {
+  string run_id = 1;
+}
+
+message CancelRunResponse {}

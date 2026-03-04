@@ -1,0 +1,90 @@
+syntax = "proto3";
+
+package sparkflow.api.v1;
+
+option go_package = "github.com/ilya-shevelev/sparkflow/api/proto/v1;apiv1";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+// TaskService manages task execution.
+service TaskService {
+  rpc GetTaskInstance(GetTaskInstanceRequest) returns (GetTaskInstanceResponse);
+  rpc ListTaskInstances(ListTaskInstancesRequest) returns (ListTaskInstancesResponse);
+  rpc RetryTask(RetryTaskRequest) returns (RetryTaskResponse);
+  rpc CancelTask(CancelTaskRequest) returns (CancelTaskResponse);
+  rpc GetTaskLogs(GetTaskLogsRequest) returns (GetTaskLogsResponse);
+}
+
+message GetTaskInstanceRequest {
+  string task_instance_id = 1;
+}
+
+message GetTaskInstanceResponse {
+  TaskInstanceDetail task_instance = 1;
+}
+
+message ListTaskInstancesRequest {
+  string run_id = 1;
+  string dag_id = 2;
+  int32 limit = 3;
+}
+
+message ListTaskInstancesResponse {
+  repeated TaskInstanceDetail task_instances = 1;
+}
+
+message TaskInstanceDetail {
+  string id = 1;
+  string run_id = 2;
+  string task_id = 3;
+  string dag_id = 4;
+  string executor = 5;
+  TaskStatus status = 6;
+  int32 attempt = 7;
+  string worker_id = 8;
+  bytes output = 9;
+  string error = 10;
+  google.protobuf.Timestamp start_time = 11;
+  google.protobuf.Timestamp end_time = 12;
+  google.protobuf.Timestamp queued_at = 13;
+  map<string, double> metrics = 14;
+  google.protobuf.Struct config = 15;
+}
+
+enum TaskStatus {
+  TASK_STATUS_UNSPECIFIED = 0;
+  TASK_STATUS_PENDING = 1;
+  TASK_STATUS_QUEUED = 2;
+  TASK_STATUS_RUNNING = 3;
+  TASK_STATUS_SUCCESS = 4;
+  TASK_STATUS_FAILED = 5;
+  TASK_STATUS_CANCELLED = 6;
+  TASK_STATUS_SKIPPED = 7;
+  TASK_STATUS_UP_FOR_RETRY = 8;
+}
+
+message RetryTaskRequest {
+  string task_instance_id = 1;
+}
+
+message RetryTaskResponse {
+  string new_task_instance_id = 1;
+}
+
+message CancelTaskRequest {
+  string task_instance_id = 1;
+}
+
+message CancelTaskResponse {}
+
+message GetTaskLogsRequest {
+  string task_instance_id = 1;
+  int32 offset = 2;
+  int32 limit = 3;
+}
+
+message GetTaskLogsResponse {
+  bytes logs = 1;
+  bool has_more = 2;
+}

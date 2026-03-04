@@ -1,0 +1,109 @@
+syntax = "proto3";
+
+package sparkflow.api.v1;
+
+option go_package = "github.com/ilya-shevelev/sparkflow/api/proto/v1;apiv1";
+
+// AdminService provides administrative operations.
+service AdminService {
+  rpc GetVersion(GetVersionRequest) returns (GetVersionResponse);
+  rpc GetHealth(GetHealthRequest) returns (GetHealthResponse);
+  rpc GetClusterInfo(GetClusterInfoRequest) returns (GetClusterInfoResponse);
+  rpc ListWorkers(ListWorkersRequest) returns (ListWorkersResponse);
+  rpc DrainWorker(DrainWorkerRequest) returns (DrainWorkerResponse);
+  rpc GetDLQ(GetDLQRequest) returns (GetDLQResponse);
+  rpc RetryDLQEntry(RetryDLQEntryRequest) returns (RetryDLQEntryResponse);
+  rpc PurgeDLQ(PurgeDLQRequest) returns (PurgeDLQResponse);
+}
+
+message GetVersionRequest {}
+
+message GetVersionResponse {
+  string version = 1;
+  string commit = 2;
+  string build_time = 3;
+  string go_version = 4;
+}
+
+message GetHealthRequest {}
+
+message GetHealthResponse {
+  string status = 1;
+  map<string, ComponentHealth> components = 2;
+}
+
+message ComponentHealth {
+  string status = 1;
+  string message = 2;
+  int64 latency_ms = 3;
+}
+
+message GetClusterInfoRequest {}
+
+message GetClusterInfoResponse {
+  string node_id = 1;
+  bool is_leader = 2;
+  string leader_id = 3;
+  repeated ClusterNode nodes = 4;
+  string state = 5;
+}
+
+message ClusterNode {
+  string id = 1;
+  string address = 2;
+  string state = 3;
+  bool is_voter = 4;
+}
+
+message ListWorkersRequest {}
+
+message ListWorkersResponse {
+  repeated WorkerInfo workers = 1;
+}
+
+message WorkerInfo {
+  string id = 1;
+  string hostname = 2;
+  string status = 3;
+  int32 capacity = 4;
+  int32 active_tasks = 5;
+  repeated string executor_types = 6;
+  int64 last_heartbeat_ms = 7;
+  map<string, string> labels = 8;
+}
+
+message DrainWorkerRequest {
+  string worker_id = 1;
+}
+
+message DrainWorkerResponse {}
+
+message GetDLQRequest {
+  int32 limit = 1;
+}
+
+message GetDLQResponse {
+  repeated DLQEntry entries = 1;
+}
+
+message DLQEntry {
+  string task_id = 1;
+  string run_id = 2;
+  string dag_id = 3;
+  string error = 4;
+  int32 attempts = 5;
+  int64 created_at_ms = 6;
+}
+
+message RetryDLQEntryRequest {
+  string task_id = 1;
+  string run_id = 2;
+}
+
+message RetryDLQEntryResponse {}
+
+message PurgeDLQRequest {}
+
+message PurgeDLQResponse {
+  int32 purged_count = 1;
+}

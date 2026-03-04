@@ -1,0 +1,115 @@
+syntax = "proto3";
+
+package sparkflow.api.v1;
+
+option go_package = "github.com/ilya-shevelev/sparkflow/api/proto/v1;apiv1";
+
+import "google/protobuf/timestamp.proto";
+
+// SchedulerService manages task scheduling and worker coordination.
+service SchedulerService {
+  // Worker registration and heartbeat.
+  rpc RegisterWorker(RegisterWorkerRequest) returns (RegisterWorkerResponse);
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+  rpc DeregisterWorker(DeregisterWorkerRequest) returns (DeregisterWorkerResponse);
+
+  // Task dispatch.
+  rpc FetchTasks(FetchTasksRequest) returns (FetchTasksResponse);
+  rpc ReportTaskResult(ReportTaskResultRequest) returns (ReportTaskResultResponse);
+
+  // Scheduler info.
+  rpc GetSchedulerStatus(GetSchedulerStatusRequest) returns (GetSchedulerStatusResponse);
+}
+
+message RegisterWorkerRequest {
+  string worker_id = 1;
+  string hostname = 2;
+  int32 capacity = 3;
+  repeated string executor_types = 4;
+  map<string, string> labels = 5;
+}
+
+message RegisterWorkerResponse {
+  bool accepted = 1;
+  string message = 2;
+}
+
+message HeartbeatRequest {
+  string worker_id = 1;
+  int32 active_tasks = 2;
+  WorkerResourceUsage resource_usage = 3;
+}
+
+message WorkerResourceUsage {
+  double cpu_percent = 1;
+  double memory_percent = 2;
+  int64 memory_bytes = 3;
+  int32 goroutines = 4;
+}
+
+message HeartbeatResponse {
+  bool acknowledged = 1;
+  repeated string cancel_task_ids = 2;
+}
+
+message DeregisterWorkerRequest {
+  string worker_id = 1;
+}
+
+message DeregisterWorkerResponse {}
+
+message FetchTasksRequest {
+  string worker_id = 1;
+  int32 max_tasks = 2;
+  repeated string executor_types = 3;
+}
+
+message FetchTasksResponse {
+  repeated TaskAssignment tasks = 1;
+}
+
+message TaskAssignment {
+  string task_instance_id = 1;
+  string run_id = 2;
+  string task_id = 3;
+  string dag_id = 4;
+  string executor = 5;
+  map<string, string> config = 6;
+  map<string, string> params = 7;
+  int64 timeout_ms = 8;
+  string idempotency_key = 9;
+}
+
+message ReportTaskResultRequest {
+  string task_instance_id = 1;
+  string worker_id = 2;
+  TaskResultStatus status = 3;
+  bytes output = 4;
+  string error = 5;
+  map<string, double> metrics = 6;
+  google.protobuf.Timestamp start_time = 7;
+  google.protobuf.Timestamp end_time = 8;
+}
+
+enum TaskResultStatus {
+  TASK_RESULT_STATUS_UNSPECIFIED = 0;
+  TASK_RESULT_STATUS_SUCCESS = 1;
+  TASK_RESULT_STATUS_FAILED = 2;
+  TASK_RESULT_STATUS_CANCELLED = 3;
+}
+
+message ReportTaskResultResponse {
+  bool acknowledged = 1;
+}
+
+message GetSchedulerStatusRequest {}
+
+message GetSchedulerStatusResponse {
+  bool is_leader = 1;
+  string leader_address = 2;
+  int32 total_workers = 3;
+  int32 active_workers = 4;
+  int32 pending_tasks = 5;
+  int32 running_tasks = 6;
+  int32 active_runs = 7;
+}
