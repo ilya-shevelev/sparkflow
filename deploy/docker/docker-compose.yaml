@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: sparkflow
+      POSTGRES_USER: sparkflow
+      POSTGRES_PASSWORD: sparkflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sparkflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  sparkflow-server:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    command:
+      - sparkflow-server
+      - --grpc-addr=:9090
+      - --http-addr=:8080
+      - --metrics-addr=:9091
+      - --store-dsn=postgres://sparkflow:sparkflow@postgres:5432/sparkflow?sslmode=disable
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+      - "9091:9091"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  sparkflow-worker:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
+    entrypoint: ["sparkflow-worker"]
+    command:
+      - --server-addr=sparkflow-server:9090
+      - --concurrency=4
+    depends_on:
+      - sparkflow-server
+
+volumes:
+  pgdata:

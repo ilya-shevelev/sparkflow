@@ -1,0 +1,17 @@
+apiVersion: v2
+name: sparkflow
+description: Sparkflow - Distributed workflow orchestrator with Spark and Hadoop integration
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - workflow
+  - orchestrator
+  - spark
+  - hadoop
+  - dag
+maintainers:
+  - name: Ilya Shevelev
+    url: https://github.com/ilya-shevelev
+sources:
+  - https://github.com/ilya-shevelev/sparkflow
