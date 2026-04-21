@@ -1,0 +1,66 @@
+id: simple-etl
+name: Simple ETL Pipeline
+description: A basic extract-transform-load workflow using shell commands
+
+schedule:
+  expression: "0 */6 * * *"
+  timezone: UTC
+
+config:
+  max_concurrency: 4
+  timeout: "30m"
+  owner: data-team
+  tags:
+    - etl
+    - production
+  params:
+    date: "2024-01-01"
+
+tasks:
+  - id: extract-users
+    name: Extract Users
+    executor: shell
+    config:
+      command: "echo 'Extracting users for {{date}}'"
+    timeout: "5m"
+
+  - id: extract-orders
+    name: Extract Orders
+    executor: shell
+    config:
+      command: "echo 'Extracting orders for {{date}}'"
+    timeout: "5m"
+
+  - id: transform-data
+    name: Transform Data
+    executor: python
+    config:
+      code: |
+        import json
+        data = {"users": 100, "orders": 250, "date": "{{date}}"}
+        print(json.dumps(data))
+    dependencies:
+      - extract-users
+      - extract-orders
+    timeout: "10m"
+    retry_policy:
+      max_retries: 2
+      initial_backoff: "10s"
+      backoff_factor: 2.0
+
+  - id: load-warehouse
+    name: Load to Warehouse
+    executor: shell
+    config:
+      command: "echo 'Loading transformed data to warehouse'"
+    dependencies:
+      - transform-data
+    timeout: "15m"
+
+  - id: send-notification
+    name: Send Notification
+    executor: shell
+    config:
+      command: "echo 'ETL pipeline completed successfully for {{date}}'"
+    dependencies:
+      - load-warehouse

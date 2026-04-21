@@ -1,0 +1,111 @@
+id: spark-etl-pipeline
+name: Spark ETL Pipeline
+description: End-to-end ETL pipeline using Apache Spark for data processing
+
+schedule:
+  expression: "0 2 * * *"
+  timezone: UTC
+  catchup: false
+
+config:
+  max_concurrency: 3
+  timeout: "2h"
+  owner: data-engineering
+  tags:
+    - spark
+    - etl
+    - daily
+  params:
+    date: "2024-01-01"
+    input_path: "hdfs:///data/raw"
+    output_path: "hdfs:///data/processed"
+  default_retry:
+    max_retries: 3
+    initial_backoff: "30s"
+    max_backoff: "5m"
+    backoff_factor: 2.0
+
+tasks:
+  - id: check-input
+    name: Verify Input Data
+    executor: hdfs
+    config:
+      operation: list
+      path: "/data/raw/{{date}}"
+    timeout: "2m"
+
+  - id: create-staging
+    name: Create Staging Directory
+    executor: hdfs
+    config:
+      operation: mkdir
+      path: "/data/staging/{{date}}"
+    timeout: "1m"
+
+  - id: spark-transform
+    name: Spark Data Transform
+    executor: spark
+    config:
+      mode: submit
+      master: yarn
+      deploy_mode: cluster
+      application: "hdfs:///apps/sparkflow/etl-transform.jar"
+      class: com.example.etl.TransformJob
+      driver_memory: "4g"
+      executor_memory: "8g"
+      executor_cores: 4
+      num_executors: 10
+      spark_conf:
+        spark.sql.adaptive.enabled: "true"
+        spark.sql.shuffle.partitions: "200"
+        spark.serializer: org.apache.spark.serializer.KryoSerializer
+      app_args:
+        - "--input"
+        - "{{input_path}}/{{date}}"
+        - "--output"
+        - "{{output_path}}/{{date}}"
+        - "--date"
+        - "{{date}}"
+    dependencies:
+      - check-input
+      - create-staging
+    timeout: "1h"
+    priority: 10
+
+  - id: validate-output
+    name: Validate Output
+    executor: spark
+    config:
+      mode: submit
+      master: yarn
+      deploy_mode: client
+      application: "hdfs:///apps/sparkflow/data-validator.py"
+      driver_memory: "2g"
+      app_args:
+        - "{{output_path}}/{{date}}"
+    dependencies:
+      - spark-transform
+    timeout: "15m"
+
+  - id: cleanup-staging
+    name: Cleanup Staging
+    executor: hdfs
+    config:
+      operation: delete
+      path: "/data/staging/{{date}}"
+      recursive: true
+    dependencies:
+      - validate-output
+    timeout: "2m"
+
+  - id: update-catalog
+    name: Update Data Catalog
+    executor: shell
+    config:
+      command: |
+        curl -X POST http://catalog-service:8080/api/v1/datasets/processed \
+          -H "Content-Type: application/json" \
+          -d '{"date": "{{date}}", "status": "available"}'
+    dependencies:
+      - validate-output
+    timeout: "1m"

@@ -1,0 +1,87 @@
+id: hadoop-wordcount
+name: Hadoop WordCount Pipeline
+description: Classic MapReduce word count with HDFS operations
+
+config:
+  max_concurrency: 2
+  timeout: "1h"
+  owner: data-team
+  tags:
+    - hadoop
+    - mapreduce
+    - batch
+  params:
+    input_file: "/data/input/books.txt"
+    output_dir: "/data/output/wordcount"
+
+tasks:
+  - id: prepare-input
+    name: Prepare Input Directory
+    executor: hdfs
+    config:
+      operation: mkdir
+      path: "/data/input"
+    timeout: "1m"
+
+  - id: upload-data
+    name: Upload Input Data
+    executor: hdfs
+    config:
+      operation: put
+      path: "/data/input/books.txt"
+      content: |
+        hello world hello
+        sparkflow is a workflow orchestrator
+        hello sparkflow world
+    dependencies:
+      - prepare-input
+    timeout: "2m"
+
+  - id: clean-output
+    name: Clean Previous Output
+    executor: hdfs
+    config:
+      operation: delete
+      path: "{{output_dir}}"
+      recursive: true
+    dependencies:
+      - upload-data
+    timeout: "1m"
+
+  - id: run-wordcount
+    name: Run MapReduce WordCount
+    executor: hadoop
+    config:
+      jar: "/opt/hadoop/share/hadoop/mapreduce/hadoop-mapreduce-examples.jar"
+      class: wordcount
+      args:
+        - "{{input_file}}"
+        - "{{output_dir}}"
+      memory_mb: 2048
+      vcores: 2
+      poll_interval: "10s"
+    dependencies:
+      - clean-output
+    timeout: "30m"
+    retry_policy:
+      max_retries: 2
+      initial_backoff: "30s"
+      backoff_factor: 2.0
+
+  - id: check-results
+    name: Verify Output
+    executor: hdfs
+    config:
+      operation: list
+      path: "{{output_dir}}"
+    dependencies:
+      - run-wordcount
+    timeout: "1m"
+
+  - id: report
+    name: Generate Report
+    executor: shell
+    config:
+      command: "echo 'WordCount completed. Results in {{output_dir}}'"
+    dependencies:
+      - check-results
